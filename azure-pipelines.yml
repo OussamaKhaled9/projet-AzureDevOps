@@ -224,7 +224,7 @@ stages:
           - task: Docker@2
             displayName: 'Build & Push image vers Docker Hub'
             inputs:
-              containerRegistry: 'DockerHubServiceConnection'
+              containerRegistry: 'DockerHubConnectionService'
               repository: '$(DOCKERHUB_REPOSITORY)'
               command: 'buildAndPush'
               Dockerfile: 'Dockerfile'
