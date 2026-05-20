@@ -179,7 +179,6 @@ stages:
               publishJUnitResults: false
               javaHomeOption: 'JDKVersion'
               jdkVersionOption: '1.17'
-
   - stage: DockerBuild
     displayName: 'Build & Push Image Docker'
     dependsOn: CodeAnalysis
