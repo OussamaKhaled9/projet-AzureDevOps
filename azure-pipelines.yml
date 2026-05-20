@@ -4,8 +4,6 @@ trigger:
     include:
       - main
       - develop
-      - feature/*
-      - release/*
   paths:
     exclude:
       - '**/*.md'
