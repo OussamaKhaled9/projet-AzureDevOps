@@ -53,16 +53,16 @@ spec:
             httpGet:
               path: /aec-api-rest/actuator/health
               port: 8080
-            initialDelaySeconds: 60
+            initialDelaySeconds: 80
             periodSeconds: 10
-            failureThreshold: 8
+            failureThreshold: 10
           livenessProbe:
             httpGet:
               path: /aec-api-rest/actuator/health
               port: 8080
-            initialDelaySeconds: 90
+            initialDelaySeconds: 120
             periodSeconds: 20
-            failureThreshold: 5
+            failureThreshold: 6
           resources:
             requests:
               memory: "512Mi"

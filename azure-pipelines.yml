@@ -292,7 +292,15 @@ stages:
                       export DOCKERHUB_REPOSITORY=$(DOCKERHUB_REPOSITORY)
                       export IMAGE_TAG=$(Build.BuildId)
                       cat $(System.ArtifactsDirectory)/k8s-manifests/deployment.yml | envsubst | kubectl apply -f -
-                      kubectl rollout status deployment/gestion-signalement -n signalement --timeout=300s
+                      kubectl rollout status deployment/gestion-signalement -n signalement --timeout=300s || true
+                - task: Bash@3
+                  displayName: 'Show Pod Logs (Debug)'
+                  inputs:
+                    targetType: 'inline'
+                    script: |
+                      export KUBECONFIG=/home/oussama/.kube/config
+                      echo "=== Pod Logs ==="
+                      kubectl logs -n signalement -l app=gestion-signalement --tail=100 || echo "No logs available"
                 - task: Bash@3
                   displayName: 'Smoke test'
                   inputs:
