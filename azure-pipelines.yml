@@ -225,7 +225,7 @@ stages:
                     script: |
                       set -e
                       export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-                      kubectl version --short
+                      kubectl version
                       kubectl get nodes
 
                 - task: Bash@3
