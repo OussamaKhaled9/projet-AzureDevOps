@@ -24,11 +24,17 @@ pool:
   vmImage: 'ubuntu-latest'
 
 stages:
+
+# =========================
+# BUILD
+# =========================
   - stage: Build
     displayName: 'Build & Tests'
+
     jobs:
       - job: MavenBuild
         displayName: 'Compilation Maven + Tests unitaires'
+
         services:
           mysql:
             image: mysql:5.7
@@ -45,13 +51,16 @@ stages:
               --health-timeout=5s
               --health-retries=10
               --health-start-period=30s
+
         steps:
+
           - task: JavaToolInstaller@0
             displayName: 'Installer JDK 8'
             inputs:
               versionSpec: '8'
               jdkArchitectureOption: 'x64'
               jdkSourceOption: 'PreInstalled'
+
           - task: Cache@2
             displayName: 'Cache dependances Maven'
             inputs:
@@ -60,6 +69,7 @@ stages:
                 maven | "$(Agent.OS)"
                 maven
               path: '$(HOME)/.m2/repository'
+
           - task: Maven@3
             displayName: 'mvn clean verify'
             inputs:
@@ -77,6 +87,7 @@ stages:
               SPRING_DATASOURCE_USERNAME: 'admin'
               SPRING_DATASOURCE_PASSWORD: 'admin123'
               SPRING_JPA_HIBERNATE_DDL_AUTO: 'create'
+
           - task: PublishCodeCoverageResults@1
             displayName: 'Publier couverture JaCoCo'
             inputs:
@@ -84,6 +95,7 @@ stages:
               summaryFileLocation: '**/target/site/jacoco/jacoco.xml'
               reportDirectory: '**/target/site/jacoco'
               failIfCoverageEmpty: false
+
           - task: PublishBuildArtifacts@1
             displayName: 'Publier JAR'
             inputs:
@@ -91,19 +103,26 @@ stages:
               ArtifactName: 'jar-artifact'
               publishLocation: 'Container'
 
+# =========================
+# CODE ANALYSIS
+# =========================
   - stage: CodeAnalysis
     displayName: 'Analyse de code statique'
     dependsOn: Build
     condition: succeeded()
+
     jobs:
       - job: StaticAnalysis
         displayName: 'Checkstyle & SpotBugs'
+
         steps:
+
           - task: JavaToolInstaller@0
             inputs:
               versionSpec: '8'
               jdkArchitectureOption: 'x64'
               jdkSourceOption: 'PreInstalled'
+
           - task: Cache@2
             inputs:
               key: 'maven | "$(Agent.OS)" | **/pom.xml'
@@ -111,6 +130,7 @@ stages:
                 maven | "$(Agent.OS)"
                 maven
               path: '$(HOME)/.m2/repository'
+
           - task: Maven@3
             displayName: 'Checkstyle'
             inputs:
@@ -119,6 +139,7 @@ stages:
               publishJUnitResults: false
               javaHomeOption: 'JDKVersion'
               jdkVersionOption: '1.8'
+
           - task: Maven@3
             displayName: 'SpotBugs'
             inputs:
@@ -128,16 +149,14 @@ stages:
               publishJUnitResults: false
               javaHomeOption: 'JDKVersion'
               jdkVersionOption: '1.8'
-          - task: PublishBuildArtifacts@1
-            displayName: 'Publier rapports SpotBugs'
-            inputs:
-              PathtoPublish: 'target/spotbugs'
-              ArtifactName: 'spotbugs-report'
-              publishLocation: 'Container'
 
+# =========================
+# DOCKER BUILD
+# =========================
   - stage: DockerBuild
     displayName: 'Build & Push Image Docker'
     dependsOn: CodeAnalysis
+
     condition: |
       and(
         succeeded(),
@@ -146,17 +165,22 @@ stages:
           eq(variables['Build.SourceBranch'], 'refs/heads/develop')
         )
       )
+
     variables:
       - group: dockerhub-config
+
     jobs:
       - job: Docker
         displayName: 'Build Docker et push vers Docker Hub'
+
         steps:
+
           - task: JavaToolInstaller@0
             inputs:
               versionSpec: '8'
               jdkArchitectureOption: 'x64'
               jdkSourceOption: 'PreInstalled'
+
           - task: Cache@2
             inputs:
               key: 'maven | "$(Agent.OS)" | **/pom.xml'
@@ -164,6 +188,7 @@ stages:
                 maven | "$(Agent.OS)"
                 maven
               path: '$(HOME)/.m2/repository'
+
           - task: Maven@3
             displayName: 'Package JAR (skip tests)'
             inputs:
@@ -172,6 +197,7 @@ stages:
               options: '-DskipTests'
               javaHomeOption: 'JDKVersion'
               jdkVersionOption: '1.8'
+
           - task: Docker@2
             displayName: 'Build & Push image vers Docker Hub'
             inputs:
@@ -183,6 +209,7 @@ stages:
               tags: |
                 $(IMAGE_TAG)
                 latest
+
           - task: PublishBuildArtifacts@1
             displayName: 'Publier manifests K8s'
             inputs:
@@ -190,28 +217,37 @@ stages:
               ArtifactName: 'k8s-manifests'
               publishLocation: 'Container'
 
+# =========================
+# DEPLOY
+# =========================
   - stage: Deploy
     displayName: 'Deploiement Kubernetes'
     dependsOn: DockerBuild
+
     condition: |
       and(
         succeeded(),
         eq(variables['Build.SourceBranch'], 'refs/heads/main')
       )
+
     variables:
       - group: dockerhub-config
       - group: aks-config
       - group: db-config
+
     jobs:
       - deployment: DeployToAKS
         displayName: 'Deployer sur K8s local'
         environment: 'production'
+
         pool:
           name: 'Default'
+
         strategy:
           runOnce:
             deploy:
               steps:
+
                 - task: DownloadBuildArtifacts@1
                   displayName: 'Telecharger manifests K8s'
                   inputs:
@@ -225,6 +261,7 @@ stages:
                     targetType: 'inline'
                     script: |
                       export KUBECONFIG=/home/oussama/.kube/config
+
                       kubectl version
                       kubectl get nodes
 
@@ -234,7 +271,9 @@ stages:
                     targetType: 'inline'
                     script: |
                       export KUBECONFIG=/home/oussama/.kube/config
+
                       kubectl create namespace signalement --dry-run=client -o yaml | kubectl apply -f -
+
                       kubectl create secret generic db-secret \
                         --namespace=signalement \
                         --from-literal=datasource-url="$(DB_URL)" \
@@ -248,7 +287,9 @@ stages:
                     targetType: 'inline'
                     script: |
                       export KUBECONFIG=/home/oussama/.kube/config
+
                       kubectl apply -f $(System.ArtifactsDirectory)/k8s-manifests/mysql.yml
+
                       kubectl rollout status deployment/mysql -n signalement --timeout=120s
 
                 - task: Bash@3
@@ -257,10 +298,22 @@ stages:
                     targetType: 'inline'
                     script: |
                       export KUBECONFIG=/home/oussama/.kube/config
-                      export DOCKERHUB_REPOSITORY=$(DOCKERHUB_REPOSITORY)
-                      export IMAGE_TAG=$(Build.BuildId)
-                      export SPRING_PROFILE=production
-                      cat $(System.ArtifactsDirectory)/k8s-manifests/deployment.yml | envsubst | kubectl apply -f -
+
+                      export DOCKERHUB_REPOSITORY="${DOCKERHUB_USERNAME}/gestion-signalement"
+                      export IMAGE_TAG="${BUILD_BUILDID}"
+
+                      echo "Using image: ${DOCKERHUB_REPOSITORY}:${IMAGE_TAG}"
+
+                      envsubst < $(System.ArtifactsDirectory)/k8s-manifests/deployment.yml > /tmp/deployment.yml
+
+                      echo "===== GENERATED DEPLOYMENT ====="
+                      cat /tmp/deployment.yml
+                      echo "================================"
+
+                      kubectl apply -f /tmp/deployment.yml
+
+                      kubectl rollout restart deployment/gestion-signalement -n signalement
+
                       kubectl rollout status deployment/gestion-signalement -n signalement --timeout=300s
 
                 - task: Bash@3
@@ -269,16 +322,30 @@ stages:
                     targetType: 'inline'
                     script: |
                       export KUBECONFIG=/home/oussama/.kube/config
+
                       NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[0].address}')
+
                       URL="http://${NODE_IP}:30080/aec-api-rest/actuator/health"
+
                       echo "Test : $URL"
+
                       for i in $(seq 1 10); do
+
                         STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || echo "000")
+
                         if [ "$STATUS" = "200" ]; then
                           echo "OK"
                           exit 0
                         fi
+
                         echo "Tentative $i/10 - HTTP $STATUS"
+
                         sleep 15
+
                       done
+
+                      kubectl get pods -n signalement
+
+                      kubectl logs deployment/gestion-signalement -n signalement --tail=100
+
                       exit 1
