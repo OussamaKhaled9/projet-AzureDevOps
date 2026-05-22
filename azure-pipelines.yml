@@ -1,4 +1,3 @@
-
 trigger:
   branches:
     include:
@@ -62,7 +61,7 @@ stages:
                 maven
               path: '$(HOME)/.m2/repository'
           - task: Maven@3
-            displayName: 'mvn clean verify (build + tests + JaCoCo)'
+            displayName: 'mvn clean verify'
             inputs:
               mavenPomFile: 'pom.xml'
               goals: 'clean verify'
@@ -97,17 +96,14 @@ stages:
     dependsOn: Build
     condition: succeeded()
     jobs:
-
       - job: StaticAnalysis
         displayName: 'Checkstyle & SpotBugs'
         steps:
-
           - task: JavaToolInstaller@0
             inputs:
               versionSpec: '8'
               jdkArchitectureOption: 'x64'
               jdkSourceOption: 'PreInstalled'
-
           - task: Cache@2
             inputs:
               key: 'maven | "$(Agent.OS)" | **/pom.xml'
@@ -115,7 +111,6 @@ stages:
                 maven | "$(Agent.OS)"
                 maven
               path: '$(HOME)/.m2/repository'
-
           - task: Maven@3
             displayName: 'Checkstyle'
             inputs:
@@ -124,7 +119,6 @@ stages:
               publishJUnitResults: false
               javaHomeOption: 'JDKVersion'
               jdkVersionOption: '1.8'
-
           - task: Maven@3
             displayName: 'SpotBugs'
             inputs:
@@ -134,7 +128,6 @@ stages:
               publishJUnitResults: false
               javaHomeOption: 'JDKVersion'
               jdkVersionOption: '1.8'
-
           - task: PublishBuildArtifacts@1
             displayName: 'Publier rapports SpotBugs'
             inputs:
@@ -142,43 +135,6 @@ stages:
               ArtifactName: 'spotbugs-report'
               publishLocation: 'Container'
 
-      # - job: SonarQube
-      #   displayName: 'Analyse SonarQube'
-      #   variables:
-      #     - group: sonar-config
-      #   steps:
-      #     - task: JavaToolInstaller@0
-      #       displayName: 'Installer JDK 17 (requis par sonar-maven-plugin)'
-      #       inputs:
-      #         versionSpec: '17'
-      #         jdkArchitectureOption: 'x64'
-      #         jdkSourceOption: 'PreInstalled'
-
-      #     - task: Cache@2
-      #       inputs:
-      #         key: 'maven | "$(Agent.OS)" | **/pom.xml'
-      #         restoreKeys: |
-      #           maven | "$(Agent.OS)"
-      #           maven
-      #         path: '$(HOME)/.m2/repository'
-
-      #     - task: Maven@3
-      #       displayName: 'Build + SonarQube analyse (Maven)'
-      #       inputs:
-      #         mavenPomFile: 'pom.xml'
-      #         goals: 'verify sonar:sonar'
-      #         options: >
-      #           -DskipTests
-      #           -Dsonar.projectKey=$(SONAR_PROJECT_KEY)
-      #           -Dsonar.projectName=gestion-signalement
-      #           -Dsonar.projectVersion=$(Build.BuildNumber)
-      #           -Dsonar.host.url=$(SONAR_HOST_URL)
-      #           -Dsonar.login=$(SONAR_TOKEN)
-      #           -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
-      #           -Dsonar.java.source=1.8
-      #         publishJUnitResults: false
-      #         javaHomeOption: 'JDKVersion'
-      #         jdkVersionOption: '1.17'
   - stage: DockerBuild
     displayName: 'Build & Push Image Docker'
     dependsOn: CodeAnalysis
@@ -196,13 +152,11 @@ stages:
       - job: Docker
         displayName: 'Build Docker et push vers Docker Hub'
         steps:
-
           - task: JavaToolInstaller@0
             inputs:
               versionSpec: '8'
               jdkArchitectureOption: 'x64'
               jdkSourceOption: 'PreInstalled'
-
           - task: Cache@2
             inputs:
               key: 'maven | "$(Agent.OS)" | **/pom.xml'
@@ -210,7 +164,6 @@ stages:
                 maven | "$(Agent.OS)"
                 maven
               path: '$(HOME)/.m2/repository'
-
           - task: Maven@3
             displayName: 'Package JAR (skip tests)'
             inputs:
@@ -219,7 +172,6 @@ stages:
               options: '-DskipTests'
               javaHomeOption: 'JDKVersion'
               jdkVersionOption: '1.8'
-
           - task: Docker@2
             displayName: 'Build & Push image vers Docker Hub'
             inputs:
@@ -231,16 +183,15 @@ stages:
               tags: |
                 $(IMAGE_TAG)
                 latest
-
           - task: PublishBuildArtifacts@1
-            displayName: 'Publier manifests K8s (pour deploy)'
+            displayName: 'Publier manifests K8s'
             inputs:
               PathtoPublish: 'k8s'
               ArtifactName: 'k8s-manifests'
               publishLocation: 'Container'
 
-- stage: Deploy
-    displayName: 'Déploiement sur AKS'
+  - stage: Deploy
+    displayName: 'Deploiement Kubernetes'
     dependsOn: DockerBuild
     condition: |
       and(
@@ -252,17 +203,16 @@ stages:
       - group: db-config
     jobs:
       - deployment: DeployToAKS
-        displayName: 'Déployer sur AKS'
+        displayName: 'Deployer sur K8s local'
         environment: 'production'
         pool:
-          vmImage: 'ubuntu-latest'    # ← sera ignoré si tu as un self-hosted agent pool
+          name: 'Default'
         strategy:
           runOnce:
             deploy:
               steps:
-
                 - task: DownloadBuildArtifacts@1
-                  displayName: 'Télécharger manifests K8s'
+                  displayName: 'Telecharger manifests K8s'
                   inputs:
                     buildType: 'current'
                     artifactName: 'k8s-manifests'
@@ -274,25 +224,19 @@ stages:
                     targetType: 'inline'
                     script: |
                       set -e
-                      # k3s met le kubeconfig ici, lisible par root seulement
                       sudo chmod 644 /etc/rancher/k3s/k3s.yaml
                       export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-
-                      echo "Testing cluster connectivity..."
                       kubectl version --short
                       kubectl get nodes
 
                 - task: Bash@3
-                  displayName: 'Créer namespace et secret DB'
+                  displayName: 'Creer namespace et secret DB'
                   inputs:
                     targetType: 'inline'
                     script: |
                       set -e
                       export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-
-                      kubectl create namespace signalement --dry-run=client -o yaml | \
-                        kubectl apply -f -
-
+                      kubectl create namespace signalement --dry-run=client -o yaml | kubectl apply -f -
                       kubectl create secret generic db-secret \
                         --namespace=signalement \
                         --from-literal=datasource-url="$(DB_URL)" \
@@ -301,33 +245,27 @@ stages:
                         --dry-run=client -o yaml | kubectl apply -f -
 
                 - task: Bash@3
-                  displayName: 'Déployer MySQL'
+                  displayName: 'Deployer MySQL'
                   inputs:
                     targetType: 'inline'
                     script: |
                       set -e
                       export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-
                       kubectl apply -f $(System.ArtifactsDirectory)/k8s-manifests/mysql.yml
                       kubectl rollout status deployment/mysql -n signalement --timeout=120s
 
                 - task: Bash@3
-                  displayName: 'Déployer application'
+                  displayName: 'Deployer application'
                   inputs:
                     targetType: 'inline'
                     script: |
                       set -e
                       export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-
                       export DOCKERHUB_REPOSITORY=$(DOCKERHUB_REPOSITORY)
                       export IMAGE_TAG=$(Build.BuildId)
                       export SPRING_PROFILE=production
-
-                      cat $(System.ArtifactsDirectory)/k8s-manifests/deployment.yml | \
-                        envsubst | kubectl apply -f -
-
-                      kubectl rollout status deployment/gestion-signalement \
-                        -n signalement --timeout=300s
+                      cat $(System.ArtifactsDirectory)/k8s-manifests/deployment.yml | envsubst | kubectl apply -f -
+                      kubectl rollout status deployment/gestion-signalement -n signalement --timeout=300s
 
                 - task: Bash@3
                   displayName: 'Smoke test'
@@ -336,15 +274,13 @@ stages:
                     script: |
                       set -e
                       export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-
-                      # k3s NodePort → on prend l'IP de la VM directement
                       NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[0].address}')
                       URL="http://${NODE_IP}:30080/aec-api-rest/actuator/health"
                       echo "Test : $URL"
                       for i in $(seq 1 10); do
                         STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || echo "000")
                         if [ "$STATUS" = "200" ]; then
-                          echo "Déploiement OK (HTTP 200)"
+                          echo "Deploiement OK"
                           exit 0
                         fi
                         echo "Tentative $i/10 - HTTP $STATUS"
