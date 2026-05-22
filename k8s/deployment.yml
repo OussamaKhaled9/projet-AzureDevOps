@@ -1,7 +1,5 @@
----
 apiVersion: apps/v1
 kind: Deployment
-
 metadata:
   name: gestion-signalement
   namespace: signalement
@@ -33,7 +31,6 @@ spec:
         - name: gestion-signalement
 
           image: ${DOCKERHUB_REPOSITORY}:${IMAGE_TAG}
-
           imagePullPolicy: Always
 
           ports:
@@ -68,16 +65,18 @@ spec:
               value: "production"
 
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              path: /actuator/health
               port: 8080
-            initialDelaySeconds: 100
+            initialDelaySeconds: 40
             periodSeconds: 10
             failureThreshold: 6
 
           livenessProbe:
-            tcpSocket:
+            httpGet:
+              path: /actuator/health
               port: 8080
-            initialDelaySeconds: 120
+            initialDelaySeconds: 60
             periodSeconds: 20
             failureThreshold: 3
 
@@ -93,7 +92,6 @@ spec:
 ---
 apiVersion: v1
 kind: Service
-
 metadata:
   name: gestion-signalement-service
   namespace: signalement
