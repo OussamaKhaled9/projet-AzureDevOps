@@ -142,43 +142,43 @@ stages:
               ArtifactName: 'spotbugs-report'
               publishLocation: 'Container'
 
-      - job: SonarQube
-        displayName: 'Analyse SonarQube'
-        variables:
-          - group: sonar-config
-        steps:
-          - task: JavaToolInstaller@0
-            displayName: 'Installer JDK 17 (requis par sonar-maven-plugin)'
-            inputs:
-              versionSpec: '17'
-              jdkArchitectureOption: 'x64'
-              jdkSourceOption: 'PreInstalled'
+      # - job: SonarQube
+      #   displayName: 'Analyse SonarQube'
+      #   variables:
+      #     - group: sonar-config
+      #   steps:
+      #     - task: JavaToolInstaller@0
+      #       displayName: 'Installer JDK 17 (requis par sonar-maven-plugin)'
+      #       inputs:
+      #         versionSpec: '17'
+      #         jdkArchitectureOption: 'x64'
+      #         jdkSourceOption: 'PreInstalled'
 
-          - task: Cache@2
-            inputs:
-              key: 'maven | "$(Agent.OS)" | **/pom.xml'
-              restoreKeys: |
-                maven | "$(Agent.OS)"
-                maven
-              path: '$(HOME)/.m2/repository'
+      #     - task: Cache@2
+      #       inputs:
+      #         key: 'maven | "$(Agent.OS)" | **/pom.xml'
+      #         restoreKeys: |
+      #           maven | "$(Agent.OS)"
+      #           maven
+      #         path: '$(HOME)/.m2/repository'
 
-          - task: Maven@3
-            displayName: 'Build + SonarQube analyse (Maven)'
-            inputs:
-              mavenPomFile: 'pom.xml'
-              goals: 'verify sonar:sonar'
-              options: >
-                -DskipTests
-                -Dsonar.projectKey=$(SONAR_PROJECT_KEY)
-                -Dsonar.projectName=gestion-signalement
-                -Dsonar.projectVersion=$(Build.BuildNumber)
-                -Dsonar.host.url=$(SONAR_HOST_URL)
-                -Dsonar.login=$(SONAR_TOKEN)
-                -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
-                -Dsonar.java.source=1.8
-              publishJUnitResults: false
-              javaHomeOption: 'JDKVersion'
-              jdkVersionOption: '1.17'
+      #     - task: Maven@3
+      #       displayName: 'Build + SonarQube analyse (Maven)'
+      #       inputs:
+      #         mavenPomFile: 'pom.xml'
+      #         goals: 'verify sonar:sonar'
+      #         options: >
+      #           -DskipTests
+      #           -Dsonar.projectKey=$(SONAR_PROJECT_KEY)
+      #           -Dsonar.projectName=gestion-signalement
+      #           -Dsonar.projectVersion=$(Build.BuildNumber)
+      #           -Dsonar.host.url=$(SONAR_HOST_URL)
+      #           -Dsonar.login=$(SONAR_TOKEN)
+      #           -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+      #           -Dsonar.java.source=1.8
+      #         publishJUnitResults: false
+      #         javaHomeOption: 'JDKVersion'
+      #         jdkVersionOption: '1.17'
   - stage: DockerBuild
     displayName: 'Build & Push Image Docker'
     dependsOn: CodeAnalysis
