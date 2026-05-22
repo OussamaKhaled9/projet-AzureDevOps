@@ -146,7 +146,6 @@ stages:
       #         versionSpec: '17'
       #         jdkArchitectureOption: 'x64'
       #         jdkSourceOption: 'PreInstalled'
-
       #     - task: Cache@2
       #       inputs:
       #         key: 'maven | "$(Agent.OS)" | **/pom.xml'
@@ -154,7 +153,6 @@ stages:
       #           maven | "$(Agent.OS)"
       #           maven
       #         path: '$(HOME)/.m2/repository'
-
       #     - task: Maven@3
       #       displayName: 'Build + SonarQube analyse (Maven)'
       #       inputs:
@@ -256,7 +254,6 @@ stages:
                     buildType: 'current'
                     artifactName: 'k8s-manifests'
                     downloadPath: '$(System.ArtifactsDirectory)'
-
                 - task: Bash@3
                   displayName: 'Configurer kubectl'
                   inputs:
@@ -265,7 +262,6 @@ stages:
                       export KUBECONFIG=/home/oussama/.kube/config
                       kubectl version
                       kubectl get nodes
-
                 - task: Bash@3
                   displayName: 'Creer namespace et secret DB'
                   inputs:
@@ -279,7 +275,6 @@ stages:
                         --from-literal=datasource-username="$(DB_USER)" \
                         --from-literal=datasource-password="$(DB_PASSWORD)" \
                         --dry-run=client -o yaml | kubectl apply -f -
-
                 - task: Bash@3
                   displayName: 'Deployer MySQL'
                   inputs:
@@ -288,7 +283,6 @@ stages:
                       export KUBECONFIG=/home/oussama/.kube/config
                       kubectl apply -f $(System.ArtifactsDirectory)/k8s-manifests/mysql.yml
                       kubectl rollout status deployment/mysql -n signalement --timeout=120s
-
                 - task: Bash@3
                   displayName: 'Deployer application'
                   inputs:
@@ -297,10 +291,8 @@ stages:
                       export KUBECONFIG=/home/oussama/.kube/config
                       export DOCKERHUB_REPOSITORY=$(DOCKERHUB_REPOSITORY)
                       export IMAGE_TAG=$(Build.BuildId)
-                      export SPRING_PROFILE=production
                       cat $(System.ArtifactsDirectory)/k8s-manifests/deployment.yml | envsubst | kubectl apply -f -
                       kubectl rollout status deployment/gestion-signalement -n signalement --timeout=300s
-
                 - task: Bash@3
                   displayName: 'Smoke test'
                   inputs:
