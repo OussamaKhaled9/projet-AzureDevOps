@@ -302,7 +302,7 @@ stages:
                       echo "=== Pod Logs ==="
                       kubectl logs -n signalement -l app=gestion-signalement --tail=100 || echo "No logs available"
                 - task: Bash@3
-                  displayName: 'Smoke test'
+                  displayName: 'Deployment Validation'
                   inputs:
                     targetType: 'inline'
                     script: |
