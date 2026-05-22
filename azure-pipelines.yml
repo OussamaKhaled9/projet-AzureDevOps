@@ -273,17 +273,23 @@ stages:
                   inputs:
                     targetType: 'inline'
                     script: |
-                      mkdir -p ~/.kube
-                      echo "$(KUBECONFIG_CONTENT)" | base64 -d > ~/.kube/config
-                      chmod 600 ~/.kube/config
-                      kubectl version --client
+                      set -e
+                      export KUBECONFIG=/home/oussama/.kube/config  # ← absolute path, no ambiguity
+
+                      echo "Testing cluster connectivity..."
+                      kubectl version
+                      kubectl get nodes
 
                 - task: Bash@3
                   displayName: 'Créer namespace et secret DB'
                   inputs:
                     targetType: 'inline'
                     script: |
-                      kubectl create namespace signalement --dry-run=client -o yaml | kubectl apply --validate=false -f -
+                      set -e
+                      export KUBECONFIG=/home/oussama/.kube/config  # ← same in every task
+
+                      kubectl create namespace signalement --dry-run=client -o yaml | \
+                        kubectl apply --validate=false -f -
 
                       kubectl create secret generic db-secret \
                         --namespace=signalement \
@@ -297,6 +303,9 @@ stages:
                   inputs:
                     targetType: 'inline'
                     script: |
+                      set -e
+                      export KUBECONFIG=/home/oussama/.kube/config
+
                       kubectl apply --validate=false -f $(System.ArtifactsDirectory)/k8s-manifests/mysql.yml
                       kubectl rollout status deployment/mysql -n signalement --timeout=120s
 
@@ -305,6 +314,9 @@ stages:
                   inputs:
                     targetType: 'inline'
                     script: |
+                      set -e
+                      export KUBECONFIG=/home/oussama/.kube/config
+
                       export DOCKERHUB_REPOSITORY=$(DOCKERHUB_REPOSITORY)
                       export IMAGE_TAG=$(Build.BuildId)
                       export SPRING_PROFILE=production
@@ -320,6 +332,9 @@ stages:
                   inputs:
                     targetType: 'inline'
                     script: |
+                      set -e
+                      export KUBECONFIG=/home/oussama/.kube/config
+
                       NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}')
                       URL="http://${NODE_IP}:30080/aec-api-rest/actuator/health"
                       echo "Test : $URL"
